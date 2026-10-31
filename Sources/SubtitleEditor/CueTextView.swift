@@ -8,19 +8,19 @@ struct CueTextView: NSViewRepresentable {
     var text: String
     var focusCaret: Int?
     var onChange: (String) -> Void
-    var onBeginEditing: () -> Void
+    var onActivate: () -> Void
     var onSplit: (Int) -> Void
     var onMergePrevious: () -> Void
     var onMergeNext: () -> Void
     var onMove: (Int) -> Void
     var onFocusHandled: () -> Void
 
-    static let inset = NSSize(width: 4, height: 4)
+    static let inset = NSSize(width: 0, height: 1)
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSTextView {
-        let tv = NSTextView()
+        let tv = ClickableTextView()
         tv.isRichText = false
         tv.importsGraphics = false
         tv.allowsUndo = false // undo is handled by the document model
@@ -30,12 +30,13 @@ struct CueTextView: NSViewRepresentable {
         tv.isVerticallyResizable = false
         tv.isHorizontallyResizable = false
         tv.textContainer?.widthTracksTextView = true
-        tv.textContainer?.lineFragmentPadding = 2
+        tv.textContainer?.lineFragmentPadding = 0
         tv.isAutomaticQuoteSubstitutionEnabled = false
         tv.isAutomaticDashSubstitutionEnabled = false
         tv.isAutomaticTextReplacementEnabled = false
         tv.string = text
         tv.delegate = context.coordinator
+        tv.onMouseDown = { [weak coordinator = context.coordinator] in coordinator?.parent.onActivate() }
         return tv
     }
 
@@ -94,10 +95,6 @@ struct CueTextView: NSViewRepresentable {
             parent.onChange(tv.string)
         }
 
-        func textDidBeginEditing(_ notification: Notification) {
-            parent.onBeginEditing()
-        }
-
         func textView(_ tv: NSTextView, doCommandBy selector: Selector) -> Bool {
             if tv.hasMarkedText() { return false }
             let sel = tv.selectedRange()
@@ -132,5 +129,15 @@ struct CueTextView: NSViewRepresentable {
                 return false
             }
         }
+    }
+}
+
+/// Reports every click so tapping a cue's text seeks the video to that cue.
+final class ClickableTextView: NSTextView {
+    var onMouseDown: (() -> Void)?
+
+    override func mouseDown(with event: NSEvent) {
+        onMouseDown?()
+        super.mouseDown(with: event)
     }
 }

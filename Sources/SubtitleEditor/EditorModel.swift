@@ -29,6 +29,7 @@ final class EditorModel: ObservableObject {
     @Published private(set) var activeCueID: UUID?
     @Published var selectedCueID: UUID?
     @Published var focusRequest: FocusRequest?
+    @Published var timeEditCueID: UUID?
     @Published var followPlayback = true
     @Published var showOverlay = true
     @Published var alertMessage: String?

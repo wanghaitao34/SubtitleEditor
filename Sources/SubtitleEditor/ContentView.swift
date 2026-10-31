@@ -95,10 +95,9 @@ struct CueListPane: View {
             header
             Divider()
             if model.cues.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "captions.bubble").font(.system(size: 36)).foregroundStyle(.secondary)
+                VStack(spacing: 6) {
                     Text("还没有字幕").font(.headline)
-                    Text("打开 SRT / VTT 字幕文件，或点击 + 新建一条").foregroundStyle(.secondary)
+                    Text("打开 SRT / VTT 文件，或拖到窗口中").font(.callout).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -108,9 +107,9 @@ struct CueListPane: View {
                             ForEach(Array(model.cues.enumerated()), id: \.element.id) { index, cue in
                                 CueRow(model: model, cue: cue, number: index + 1)
                                     .id(cue.id)
-                                Divider()
                             }
                         }
+                        .padding(.vertical, 4)
                     }
                     .onChange(of: model.activeCueID) { _, id in
                         guard model.followPlayback, clock.isPlaying, let id else { return }
@@ -122,38 +121,31 @@ struct CueListPane: View {
                     }
                 }
             }
-            Divider()
-            footer
         }
+        .background(Color(nsColor: .textBackgroundColor))
     }
 
     private var header: some View {
-        HStack {
-            Text(model.subtitleURL?.lastPathComponent ?? "未保存的字幕")
-                .font(.headline)
-                .lineLimit(1)
-                .truncationMode(.middle)
+        HStack(spacing: 8) {
+            Text(model.cues.isEmpty ? "字幕" : "\(model.cues.count) 条字幕")
+                .font(.callout.weight(.medium))
             Spacer()
-            Text(Timecode.format(clock.currentMs, separator: "."))
-                .font(.system(.body, design: .monospaced))
+            Text(CueRow.shortTime(clock.currentMs))
+                .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(.secondary)
+            Menu {
+                Toggle("播放时自动滚动", isOn: $model.followPlayback)
+                Toggle("在视频上显示字幕", isOn: $model.showOverlay)
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-    }
-
-    private var footer: some View {
-        HStack(spacing: 12) {
-            Text("\(model.cues.count) 条字幕").foregroundStyle(.secondary)
-            Spacer()
-            Toggle("跟随播放", isOn: $model.followPlayback)
-            Toggle("视频叠加字幕", isOn: $model.showOverlay)
-        }
-        .toggleStyle(.checkbox)
-        .font(.callout)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .help("回车：在光标处拆分为两条 · ⌥回车：条内换行 · 行首退格：与上一条合并 · 行尾 Delete：与下一条合并 · Tab：下一条")
+        .padding(.vertical, 7)
+        .help("单击：跳转视频 · 回车：拆分 · ⌥回车：条内换行 · 行首⌫ / 行尾Delete：合并 · 双击时间码：编辑时间")
     }
 }
 
@@ -165,43 +157,54 @@ struct CueRow: View {
     private var isActive: Bool { model.activeCueID == cue.id }
     private var isSelected: Bool { model.selectedCueID == cue.id }
 
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("#\(number)")
-                    .font(.caption.bold())
-                    .foregroundStyle(isActive ? Color.accentColor : .secondary)
-                TimecodeField(ms: cue.startMs) { model.setTime(cue.id, startMs: $0) }
-                TimecodeField(ms: cue.endMs) { model.setTime(cue.id, endMs: $0) }
-                Text(String(format: "%.2f 秒", Double(cue.durationMs) / 1000))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(width: 104, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture { model.select(cue.id) }
+    /// `MM:SS.mmm`, with hours only when needed.
+    static func shortTime(_ ms: Int) -> String {
+        let full = Timecode.format(ms, separator: ".")
+        return ms < 3_600_000 ? String(full.dropFirst(3)) : full
+    }
 
-            CueTextView(
-                text: cue.text,
-                focusCaret: model.focusRequest?.cueID == cue.id ? model.focusRequest?.caret : nil,
-                onChange: { model.updateText(cue.id, $0) },
-                onBeginEditing: { if model.selectedCueID != cue.id { model.select(cue.id) } },
-                onSplit: { model.split(cue.id, atCharacter: $0) },
-                onMergePrevious: { model.mergeWithPrevious(cue.id) },
-                onMergeNext: { model.mergeWithNext(cue.id) },
-                onMove: { model.focusAdjacent(to: cue.id, delta: $0) },
-                onFocusHandled: { model.focusRequest = nil }
-            )
-            .background(
-                RoundedRectangle(cornerRadius: 5)
-                    .stroke(isSelected ? Color.accentColor.opacity(0.6) : Color.secondary.opacity(0.2))
-            )
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(number)")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .frame(width: 26, alignment: .trailing)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(Self.shortTime(cue.startMs))  →  \(Self.shortTime(cue.endMs))")
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(isActive ? Color.accentColor : .secondary)
+                    .onTapGesture(count: 2) { model.timeEditCueID = cue.id }
+                    .popover(isPresented: Binding(
+                        get: { model.timeEditCueID == cue.id },
+                        set: { if !$0 { model.timeEditCueID = nil } }
+                    )) {
+                        timeEditor
+                    }
+                CueTextView(
+                    text: cue.text,
+                    focusCaret: model.focusRequest?.cueID == cue.id ? model.focusRequest?.caret : nil,
+                    onChange: { model.updateText(cue.id, $0) },
+                    onActivate: { model.select(cue.id) },
+                    onSplit: { model.split(cue.id, atCharacter: $0) },
+                    onMergePrevious: { model.mergeWithPrevious(cue.id) },
+                    onMergeNext: { model.mergeWithNext(cue.id) },
+                    onMove: { model.focusAdjacent(to: cue.id, delta: $0) },
+                    onFocusHandled: { model.focusRequest = nil }
+                )
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(isActive ? Color.accentColor.opacity(0.16) : (isSelected ? Color.secondary.opacity(0.08) : .clear))
+        .padding(.leading, 4)
+        .padding(.trailing, 12)
+        .padding(.vertical, 5)
+        .background(rowBackground)
+        .overlay(alignment: .leading) {
+            if isActive { Rectangle().fill(Color.accentColor).frame(width: 3) }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { model.select(cue.id) }
         .contextMenu {
             Button("跳转到此处") { model.select(cue.id) }
+            Button("编辑时间…") { model.timeEditCueID = cue.id }
             Divider()
             Button("与上一条合并") { model.mergeWithPrevious(cue.id) }
             Button("与下一条合并") { model.mergeWithNext(cue.id) }
@@ -212,6 +215,27 @@ struct CueRow: View {
             Divider()
             Button("删除此条", role: .destructive) { model.deleteCue(cue.id) }
         }
+    }
+
+    private var rowBackground: Color {
+        if isActive { return Color.accentColor.opacity(0.12) }
+        if isSelected { return Color.primary.opacity(0.05) }
+        return .clear
+    }
+
+    private var timeEditor: some View {
+        Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 6) {
+            GridRow {
+                Text("开始").foregroundStyle(.secondary)
+                TimecodeField(ms: cue.startMs) { model.setTime(cue.id, startMs: $0) }.frame(width: 110)
+            }
+            GridRow {
+                Text("结束").foregroundStyle(.secondary)
+                TimecodeField(ms: cue.endMs) { model.setTime(cue.id, endMs: $0) }.frame(width: 110)
+            }
+        }
+        .font(.callout)
+        .padding(12)
     }
 }
 
@@ -224,9 +248,7 @@ struct TimecodeField: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSTextField {
         let field = NSTextField(string: Timecode.format(ms, separator: "."))
-        field.isBordered = false
-        field.drawsBackground = false
-        field.focusRingType = .none
+        field.isBezeled = true
         field.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         field.delegate = context.coordinator
         field.target = context.coordinator
