@@ -102,7 +102,7 @@ import Testing
         let r = try #require(SubtitleEditing.mergeWithNext(cues, at: 0))
         #expect(r.count == 1)
         #expect(r[0].startMs == 0 && r[0].endMs == 3000)
-        #expect(r[0].text == "AAAABBBBBBBB\nNext")
+        #expect(r[0].text == "AAAABBBBBBBB Next")
         #expect(SubtitleEditing.mergeWithNext(cues, at: 1) == nil)
     }
 
@@ -110,6 +110,14 @@ import Testing
         let s = try #require(SubtitleEditing.split(cues, at: 0, characterOffset: 4))
         let m = try #require(SubtitleEditing.mergeWithNext(s, at: 0, separator: ""))
         #expect(m[0].startMs == 0 && m[0].endMs == 1000 && m[0].text == "AAAABBBBBBBB")
+    }
+
+    @Test func mergeJoinsOnOneLine() throws {
+        let zh = [SubtitleCue(startMs: 0, endMs: 1000, text: "你好，"), SubtitleCue(startMs: 1000, endMs: 2000, text: "世界")]
+        #expect(try #require(SubtitleEditing.mergeWithNext(zh, at: 0))[0].text == "你好，世界")
+        #expect(SubtitleEditing.joinSeparator("Hello", "world") == " ")
+        #expect(SubtitleEditing.joinSeparator("Hello", "世界") == "")
+        #expect(SubtitleEditing.joinSeparator("Hi ", "x") == "")
     }
 
     @Test func activeIndex() {
@@ -131,6 +139,17 @@ import Testing
         #expect(!s.replacingOccurrences(of: "\r\n", with: "").contains("\n"))
         let data = SubtitleExporter.data(cues, format: .srt)
         #expect(data.starts(with: [0xEF, 0xBB, 0xBF]))
+    }
+
+    @Test func dataPreservesLineEndingAndBOM() {
+        let unix = SubtitleExporter.data(cues, format: .srt, lineEnding: .lf, bom: false)
+        #expect(!unix.starts(with: [0xEF, 0xBB, 0xBF]))
+        #expect(!unix.contains(0x0D))
+        #expect(String(decoding: unix, as: UTF8.self) == SubtitleExporter.srt(cues).replacingOccurrences(of: "\r\n", with: "\n"))
+        let vttCRLF = SubtitleExporter.data(cues, format: .vtt, lineEnding: .crlf, bom: true)
+        #expect(vttCRLF.starts(with: [0xEF, 0xBB, 0xBF, 0x57]))
+        #expect(LineEnding.detect(in: String(decoding: vttCRLF, as: UTF8.self)) == .crlf)
+        #expect(!SubtitleExporter.data(cues, format: .vtt).contains(0x0D))
     }
 
     @Test func vtt() {

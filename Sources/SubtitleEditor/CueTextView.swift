@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 /// Plain-text NSTextView for one cue. Return splits the cue at the caret, Backspace at the start
-/// merges with the previous cue, Forward-Delete at the end merges with the next, Option-Return inserts
-/// a line break, and Tab / Shift-Tab move between cues.
+/// merges with the previous cue, Forward-Delete at the end merges with the next, Shift-Return (or Option-Return)
+/// inserts a line break, and Tab / Shift-Tab move between cues.
 struct CueTextView: NSViewRepresentable {
     var text: String
     var focusCaret: Int?
@@ -100,6 +100,9 @@ struct CueTextView: NSViewRepresentable {
             let sel = tv.selectedRange()
             let length = (tv.string as NSString).length
             switch selector {
+            case #selector(NSResponder.insertNewline(_:)) where NSApp.currentEvent?.modifierFlags.contains(.shift) == true:
+                tv.insertText("\n", replacementRange: sel)
+                return true
             case #selector(NSResponder.insertNewline(_:)):
                 parent.onChange(tv.string)
                 let s = tv.string

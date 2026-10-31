@@ -56,11 +56,26 @@ public enum SubtitleExporter {
         }
     }
 
-    /// File bytes for a format. SRT is written as UTF-8 with BOM for best compatibility with Windows players.
-    public static func data(_ cues: [SubtitleCue], format: SubtitleFormat, title: String? = nil) -> Data {
+    /// Default line ending / BOM per format: SRT is Windows style (CRLF, UTF-8 with BOM), others use LF without BOM.
+    public static func defaultStyle(for format: SubtitleFormat) -> (lineEnding: LineEnding, bom: Bool) {
+        format == .srt ? (.crlf, true) : (.lf, false)
+    }
+
+    /// File bytes for a format. Pass `lineEnding` / `bom` to preserve the style of an existing file;
+    /// otherwise `defaultStyle(for:)` is used.
+    public static func data(_ cues: [SubtitleCue], format: SubtitleFormat, title: String? = nil,
+                            lineEnding: LineEnding? = nil, bom: Bool? = nil) -> Data {
+        let style = defaultStyle(for: format)
+        let ending = lineEnding ?? style.lineEnding
+        var text = string(cues, format: format, title: title).replacingOccurrences(of: "\r\n", with: "\n")
+        switch ending {
+        case .lf: break
+        case .crlf: text = text.replacingOccurrences(of: "\n", with: "\r\n")
+        case .cr: text = text.replacingOccurrences(of: "\n", with: "\r")
+        }
         var data = Data()
-        if format == .srt { data.append(contentsOf: [0xEF, 0xBB, 0xBF]) }
-        data.append(Data(string(cues, format: format, title: title).utf8))
+        if bom ?? style.bom { data.append(contentsOf: [0xEF, 0xBB, 0xBF]) }
+        data.append(Data(text.utf8))
         return data
     }
 }

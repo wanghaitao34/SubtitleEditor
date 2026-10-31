@@ -131,7 +131,7 @@ struct CueListPane: View {
                     .padding(.horizontal, 5)
                     .padding(.vertical, 1)
                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.4)))
-                    .help("当前字幕文件格式；保存字幕时 SRT 一律写成 Windows 格式（CRLF + UTF-8 BOM）")
+                    .help("当前字幕文件格式；保存字幕时保持此格式")
             }
             Spacer()
             Text(CueRow.shortTime(clock.currentMs))
@@ -149,7 +149,7 @@ struct CueListPane: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .help("单击：跳转视频 · 回车：拆分 · ⌥回车：条内换行 · 行首⌫ / 行尾Delete：合并 · 双击时间码：编辑时间")
+        .help("单击：跳转视频 · 回车：拆分 · ⇧回车：条内换行 · 行首⌫ / 行尾Delete：合并 · 双击时间码：编辑时间")
     }
 }
 

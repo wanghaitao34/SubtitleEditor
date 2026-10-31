@@ -25,6 +25,7 @@ final class EditorModel: ObservableObject {
     @Published private(set) var subtitleURL: URL?
     @Published private(set) var sourceFormat: SubtitleFormat = .srt
     @Published private(set) var sourceLineEnding: LineEnding = .crlf
+    private var sourceHasBOM = true
 
     /// Format of the open subtitle file as shown in the UI, e.g. "SRT (Windows)".
     var formatLabel: String? {
@@ -184,7 +185,9 @@ final class EditorModel: ObservableObject {
             NSSound.beep()
             return
         }
-        let caret = cues[i].text.trimmingCharacters(in: .whitespacesAndNewlines).count
+        let left = cues[i].text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let right = cues[i + 1].text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let caret = left.count + (right.isEmpty ? 0 : SubtitleEditing.joinSeparator(left, right).count)
         commit(result)
         selectedCueID = result[i].id
         focusRequest = FocusRequest(cueID: result[i].id, caret: caret)
@@ -300,6 +303,7 @@ final class EditorModel: ObservableObject {
             subtitleURL = url
             sourceFormat = url.pathExtension.lowercased() == "vtt" ? .vtt : .srt
             sourceLineEnding = (try? SubtitleParser.decode(data)).map(LineEnding.detect(in:)) ?? .lf
+            sourceHasBOM = data.starts(with: [0xEF, 0xBB, 0xBF])
             isDirty = false
             undoStack.removeAll()
             redoStack.removeAll()
@@ -337,7 +341,7 @@ final class EditorModel: ObservableObject {
     @discardableResult
     func save() -> Bool {
         guard let url = subtitleURL else { return export(.srt) }
-        return write(sourceFormat, to: url, markClean: true)
+        return write(sourceFormat, to: url, markClean: true, lineEnding: sourceLineEnding, bom: sourceHasBOM)
     }
 
     @discardableResult
@@ -352,18 +356,20 @@ final class EditorModel: ObservableObject {
         // Exporting to SRT/VTT with no current file adopts it as the document.
         let adopt = subtitleURL == nil && (format == .srt || format == .vtt)
         let ok = write(format, to: url, markClean: adopt)
-        if ok && adopt { subtitleURL = url; sourceFormat = format }
+        if ok && adopt {
+            subtitleURL = url
+            sourceFormat = format
+            (sourceLineEnding, sourceHasBOM) = SubtitleExporter.defaultStyle(for: format)
+        }
         return ok
     }
 
-    private func write(_ format: SubtitleFormat, to url: URL, markClean: Bool) -> Bool {
+    private func write(_ format: SubtitleFormat, to url: URL, markClean: Bool,
+                       lineEnding: LineEnding? = nil, bom: Bool? = nil) -> Bool {
         do {
-            let data = SubtitleExporter.data(cues, format: format, title: baseName)
+            let data = SubtitleExporter.data(cues, format: format, title: baseName, lineEnding: lineEnding, bom: bom)
             try data.write(to: url, options: .atomic)
-            if markClean {
-                isDirty = false
-                sourceLineEnding = format == .srt ? .crlf : .lf
-            }
+            if markClean { isDirty = false }
             return true
         } catch {
             alertMessage = "保存失败：\(error.localizedDescription)"
