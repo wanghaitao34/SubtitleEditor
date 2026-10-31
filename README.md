@@ -65,3 +65,7 @@ swift run SubtitleEditor /path/to/movie.mp4
 - 视频格式受 AVFoundation 限制（MP4/MOV/M4V 等），不支持 MKV、AVI 等
 - 解析 VTT 时会丢弃样式（STYLE）、区域（REGION）和 cue 设置（如 `align:start`），导出的 VTT 不含这些信息
 - 只能编辑纯文本；`<i>` 之类的标签会原样保留在文字中
+
+## 许可证
+
+MIT，详见 [LICENSE](LICENSE)。
