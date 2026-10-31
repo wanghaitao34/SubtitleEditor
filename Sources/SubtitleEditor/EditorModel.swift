@@ -163,26 +163,6 @@ final class EditorModel: ObservableObject {
         focusRequest = FocusRequest(cueID: result[i + 1].id, caret: 0)
     }
 
-    func mergeWithNext(_ id: UUID) {
-        guard let i = index(of: id), let result = SubtitleEditing.mergeWithNext(cues, at: i) else {
-            NSSound.beep()
-            return
-        }
-        let caret = cues[i].text.trimmingCharacters(in: .whitespacesAndNewlines).count
-        commit(result)
-        selectedCueID = result[i].id
-        focusRequest = FocusRequest(cueID: result[i].id, caret: caret)
-    }
-
-    func mergeWithPrevious(_ id: UUID) {
-        guard let i = index(of: id), i > 0 else { NSSound.beep(); return }
-        mergeWithNext(cues[i - 1].id)
-    }
-
-    func mergeSelectedWithNext() {
-        if let id = selectedCueID { mergeWithNext(id) }
-    }
-
     func deleteCue(_ id: UUID) {
         guard let i = index(of: id) else { return }
         var result = cues

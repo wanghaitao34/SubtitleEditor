@@ -78,9 +78,6 @@ struct EditorCommands: Commands {
                 .disabled(!model.canRedo)
         }
         CommandMenu("字幕") {
-            Button("与下一条合并") { model.mergeSelectedWithNext() }
-                .keyboardShortcut("m", modifiers: [.command, .shift])
-                .disabled(model.selectedCueID == nil)
             Button("在后面插入新字幕") { model.insertCue(after: model.selectedCueID) }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
             Button("删除选中字幕") { model.deleteSelected() }

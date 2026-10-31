@@ -1,8 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Plain-text NSTextView for one cue. Return splits the cue at the caret, Backspace at the start
-/// merges with the previous cue, Forward-Delete at the end merges with the next, Option-Return inserts
+/// Plain-text NSTextView for one cue. Return splits the cue at the caret, Option-Return inserts
 /// a line break, and Tab / Shift-Tab move between cues.
 struct CueTextView: NSViewRepresentable {
     var text: String
@@ -10,8 +9,6 @@ struct CueTextView: NSViewRepresentable {
     var onChange: (String) -> Void
     var onActivate: () -> Void
     var onSplit: (Int) -> Void
-    var onMergePrevious: () -> Void
-    var onMergeNext: () -> Void
     var onMove: (Int) -> Void
     var onFocusHandled: () -> Void
 
@@ -110,14 +107,6 @@ struct CueTextView: NSViewRepresentable {
             case #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)),
                  #selector(NSResponder.insertLineBreak(_:)):
                 tv.insertText("\n", replacementRange: sel)
-                return true
-            case #selector(NSResponder.deleteBackward(_:)) where sel.location == 0 && sel.length == 0:
-                parent.onChange(tv.string)
-                parent.onMergePrevious()
-                return true
-            case #selector(NSResponder.deleteForward(_:)) where sel.location == length && sel.length == 0:
-                parent.onChange(tv.string)
-                parent.onMergeNext()
                 return true
             case #selector(NSResponder.insertTab(_:)):
                 parent.onMove(1)

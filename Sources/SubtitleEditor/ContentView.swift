@@ -41,11 +41,6 @@ struct ContentView: View {
         }
         ToolbarItemGroup {
             PlayPauseButton(model: model, clock: model.clock)
-            Button { model.mergeSelectedWithNext() } label: {
-                Label("与下一条合并", systemImage: "arrow.down.right.and.arrow.up.left")
-            }
-            .help("将选中字幕与下一条合并（⇧⌘M）")
-            .disabled(model.selectedCueID == nil)
             Button { model.insertCue(after: model.selectedCueID) } label: {
                 Label("插入字幕", systemImage: "plus")
             }.help("在选中字幕后插入新字幕")
@@ -145,7 +140,7 @@ struct CueListPane: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .help("单击：跳转视频 · 回车：拆分 · ⌥回车：条内换行 · 行首⌫ / 行尾Delete：合并 · 双击时间码：编辑时间")
+        .help("单击：跳转视频 · 回车：拆分 · ⌥回车：条内换行 · 双击时间码：编辑时间")
     }
 }
 
@@ -186,8 +181,6 @@ struct CueRow: View {
                     onChange: { model.updateText(cue.id, $0) },
                     onActivate: { model.select(cue.id) },
                     onSplit: { model.split(cue.id, atCharacter: $0) },
-                    onMergePrevious: { model.mergeWithPrevious(cue.id) },
-                    onMergeNext: { model.mergeWithNext(cue.id) },
                     onMove: { model.focusAdjacent(to: cue.id, delta: $0) },
                     onFocusHandled: { model.focusRequest = nil }
                 )
@@ -206,8 +199,6 @@ struct CueRow: View {
             Button("跳转到此处") { model.select(cue.id) }
             Button("编辑时间…") { model.timeEditCueID = cue.id }
             Divider()
-            Button("与上一条合并") { model.mergeWithPrevious(cue.id) }
-            Button("与下一条合并") { model.mergeWithNext(cue.id) }
             Button("在后面插入新字幕") { model.insertCue(after: cue.id) }
             Divider()
             Button("开始时间设为当前播放位置") { model.setTime(cue.id, startMs: model.clock.currentMs) }
