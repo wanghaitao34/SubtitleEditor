@@ -124,6 +124,15 @@ struct CueListPane: View {
         HStack(spacing: 8) {
             Text(model.cues.isEmpty ? "字幕" : "\(model.cues.count) 条字幕")
                 .font(.callout.weight(.medium))
+            if let label = model.formatLabel {
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.4)))
+                    .help("当前字幕文件格式；保存字幕时 SRT 一律写成 Windows 格式（CRLF + UTF-8 BOM）")
+            }
             Spacer()
             Text(CueRow.shortTime(clock.currentMs))
                 .font(.system(size: 11, design: .monospaced))

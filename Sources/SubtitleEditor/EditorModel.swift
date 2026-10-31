@@ -24,6 +24,22 @@ final class EditorModel: ObservableObject {
     @Published private(set) var cues: [SubtitleCue] = []
     @Published private(set) var subtitleURL: URL?
     @Published private(set) var sourceFormat: SubtitleFormat = .srt
+    @Published private(set) var sourceLineEnding: LineEnding = .crlf
+
+    /// Format of the open subtitle file as shown in the UI, e.g. "SRT (Windows)".
+    var formatLabel: String? {
+        guard subtitleURL != nil else { return nil }
+        switch sourceFormat {
+        case .vtt: return "VTT"
+        case .srt:
+            switch sourceLineEnding {
+            case .crlf: return "SRT (Windows)"
+            case .lf: return "SRT (Unix)"
+            case .cr: return "SRT (Mac)"
+            }
+        default: return sourceFormat.rawValue.uppercased()
+        }
+    }
     @Published private(set) var videoURL: URL?
     @Published private(set) var isDirty = false
     @Published private(set) var activeCueID: UUID?
@@ -278,10 +294,12 @@ final class EditorModel: ObservableObject {
     func openSubtitle(_ url: URL) {
         guard confirmDiscardChanges() else { return }
         do {
-            let parsed = try SubtitleParser.parse(data: Data(contentsOf: url))
+            let data = try Data(contentsOf: url)
+            let parsed = try SubtitleParser.parse(data: data)
             cues = parsed
             subtitleURL = url
             sourceFormat = url.pathExtension.lowercased() == "vtt" ? .vtt : .srt
+            sourceLineEnding = (try? SubtitleParser.decode(data)).map(LineEnding.detect(in:)) ?? .lf
             isDirty = false
             undoStack.removeAll()
             redoStack.removeAll()
@@ -342,7 +360,10 @@ final class EditorModel: ObservableObject {
         do {
             let data = SubtitleExporter.data(cues, format: format, title: baseName)
             try data.write(to: url, options: .atomic)
-            if markClean { isDirty = false }
+            if markClean {
+                isDirty = false
+                sourceLineEnding = format == .srt ? .crlf : .lf
+            }
             return true
         } catch {
             alertMessage = "保存失败：\(error.localizedDescription)"

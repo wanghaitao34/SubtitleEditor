@@ -12,6 +12,26 @@ public enum SubtitleParseError: Error, LocalizedError {
     }
 }
 
+public enum LineEnding: Sendable {
+    case crlf, lf, cr
+
+    /// Detects the dominant line ending of `text`; defaults to `.lf` when there are no line breaks.
+    public static func detect(in text: String) -> LineEnding {
+        var crlf = 0, lf = 0, cr = 0
+        var previousCR = false
+        for byte in text.utf8 {
+            if byte == 0x0A {
+                if previousCR { crlf += 1; cr -= 1 } else { lf += 1 }
+            } else if byte == 0x0D {
+                cr += 1
+            }
+            previousCR = byte == 0x0D
+        }
+        if crlf >= lf && crlf >= cr && crlf > 0 { return .crlf }
+        return cr > lf ? .cr : .lf
+    }
+}
+
 public enum SubtitleParser {
     /// Decodes subtitle file bytes, trying UTF-8 (with/without BOM), UTF-16 (BOM), GB18030 and Latin-1.
     public static func decode(_ data: Data) throws -> String {

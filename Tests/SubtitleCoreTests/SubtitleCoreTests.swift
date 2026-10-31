@@ -166,3 +166,12 @@ import Testing
         #expect(SubtitleFiles.sibling(for: video)?.lastPathComponent == "movie.srt")
     }
 }
+
+@Suite struct LineEndingTests {
+    @Test func detectsLineEndings() {
+        #expect(LineEnding.detect(in: "1\r\n00:00:01,000 --> 00:00:02,000\r\nHi\r\n") == .crlf)
+        #expect(LineEnding.detect(in: "1\n00:00:01,000 --> 00:00:02,000\nHi\n") == .lf)
+        #expect(LineEnding.detect(in: "1\r00:00:01,000 --> 00:00:02,000\rHi\r") == .cr)
+        #expect(LineEnding.detect(in: "no breaks") == .lf)
+    }
+}
