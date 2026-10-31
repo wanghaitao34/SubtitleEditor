@@ -163,6 +163,22 @@ final class EditorModel: ObservableObject {
         focusRequest = FocusRequest(cueID: result[i + 1].id, caret: 0)
     }
 
+    func mergeWithNext(_ id: UUID) {
+        guard let i = index(of: id), let result = SubtitleEditing.mergeWithNext(cues, at: i) else {
+            NSSound.beep()
+            return
+        }
+        let caret = cues[i].text.trimmingCharacters(in: .whitespacesAndNewlines).count
+        commit(result)
+        selectedCueID = result[i].id
+        focusRequest = FocusRequest(cueID: result[i].id, caret: caret)
+    }
+
+    func mergeWithPrevious(_ id: UUID) {
+        guard let i = index(of: id), i > 0 else { NSSound.beep(); return }
+        mergeWithNext(cues[i - 1].id)
+    }
+
     func deleteCue(_ id: UUID) {
         guard let i = index(of: id) else { return }
         var result = cues
@@ -284,7 +300,7 @@ final class EditorModel: ObservableObject {
         let alert = NSAlert()
         alert.messageText = "字幕已修改，是否保存？"
         alert.informativeText = "如果不保存，你的修改将会丢失。"
-        alert.addButton(withTitle: "保存")
+        alert.addButton(withTitle: "保存字幕")
         alert.addButton(withTitle: "不保存")
         alert.addButton(withTitle: "取消")
         switch alert.runModal() {

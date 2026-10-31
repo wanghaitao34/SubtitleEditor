@@ -56,7 +56,7 @@ struct EditorCommands: Commands {
                 .keyboardShortcut("o", modifiers: [.command, .option])
         }
         CommandGroup(replacing: .saveItem) {
-            Button("保存") { model.save() }
+            Button("保存字幕") { model.save() }
                 .keyboardShortcut("s")
                 .disabled(model.cues.isEmpty)
             Menu("导出") {

@@ -140,7 +140,7 @@ struct CueListPane: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .help("单击：跳转视频 · 回车：拆分 · ⌥回车：条内换行 · 双击时间码：编辑时间")
+        .help("单击：跳转视频 · 回车：拆分 · ⌥回车：条内换行 · 行首⌫ / 行尾Delete：合并 · 双击时间码：编辑时间")
     }
 }
 
@@ -181,6 +181,8 @@ struct CueRow: View {
                     onChange: { model.updateText(cue.id, $0) },
                     onActivate: { model.select(cue.id) },
                     onSplit: { model.split(cue.id, atCharacter: $0) },
+                    onMergePrevious: { model.mergeWithPrevious(cue.id) },
+                    onMergeNext: { model.mergeWithNext(cue.id) },
                     onMove: { model.focusAdjacent(to: cue.id, delta: $0) },
                     onFocusHandled: { model.focusRequest = nil }
                 )
