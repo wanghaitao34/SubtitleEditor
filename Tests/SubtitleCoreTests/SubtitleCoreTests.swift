@@ -152,3 +152,17 @@ import Testing
         }
     }
 }
+
+@Suite struct SiblingTests {
+    @Test func findsSameNamedSubtitle() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let video = dir.appendingPathComponent("movie.mp4")
+        #expect(SubtitleFiles.sibling(for: video) == nil)
+        try Data().write(to: dir.appendingPathComponent("movie.zh.vtt"))
+        #expect(SubtitleFiles.sibling(for: video)?.lastPathComponent == "movie.zh.vtt")
+        try Data().write(to: dir.appendingPathComponent("movie.srt"))
+        #expect(SubtitleFiles.sibling(for: video)?.lastPathComponent == "movie.srt")
+    }
+}
