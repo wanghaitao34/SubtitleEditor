@@ -13,6 +13,12 @@ BIN="$(swift build -c release --show-bin-path)/$APP_NAME"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/$APP_NAME"
+# SwiftPM records the deployment target as the SDK version (e.g. 14.0), which makes
+# macOS 26+ treat the app as legacy (old flat window controls, no Liquid Glass).
+# Stamp the real SDK version so the app adopts the current system appearance.
+SDK_VERSION="$(xcrun --show-sdk-version)"
+vtool -set-build-version macos 14.0 "$SDK_VERSION" -replace \
+  -output "$APP/Contents/MacOS/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
