@@ -50,6 +50,16 @@ swift run SubtitleEditor /path/to/movie.mp4
 ./scripts/test.sh
 ```
 
+正式分发（Developer ID 签名 + 公证 + 装订），输出 `build/SubtitleEditor.zip`：
+
+```bash
+./scripts/build-app.sh \
+  --identity "Developer ID Application: 名称 (TEAMID)" \
+  --notary-profile <notarytool 钥匙串配置名>
+```
+
+公证凭据需事先用 `xcrun notarytool store-credentials` 存入钥匙串，脚本不接收密码。
+
 应用图标位于 `Resources/AppIcon.icns`（源图 `Resources/AppIcon-1024.png`），打包脚本会自动放进 .app。
 
 > 只装了 Command Line Tools 时，直接运行 `swift test` 会报 “plugin for module 'TestingMacros' not found”，`scripts/test.sh` 会显式加载这个插件。
