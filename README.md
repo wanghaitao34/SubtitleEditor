@@ -50,6 +50,8 @@ swift run SubtitleEditor /path/to/movie.mp4
 ./scripts/test.sh
 ```
 
+应用图标位于 `Resources/AppIcon.icns`（源图 `Resources/AppIcon-1024.png`），打包脚本会自动放进 .app。
+
 > 只装了 Command Line Tools 时，直接运行 `swift test` 会报 “plugin for module 'TestingMacros' not found”，`scripts/test.sh` 会显式加载这个插件。
 
 ## 项目结构
