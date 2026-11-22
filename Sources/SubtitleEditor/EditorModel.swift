@@ -199,9 +199,7 @@ final class EditorModel: ObservableObject {
     }
 
     func deleteCue(_ id: UUID) {
-        guard let i = index(of: id) else { return }
-        var result = cues
-        result.remove(at: i)
+        guard let i = index(of: id), let result = SubtitleEditing.deleteClosingGap(cues, at: i) else { return }
         commit(result)
         selectedCueID = result.indices.contains(i) ? result[i].id : result.last?.id
     }

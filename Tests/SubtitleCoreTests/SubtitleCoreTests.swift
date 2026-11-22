@@ -195,18 +195,34 @@ import Testing
     }
 }
 
-@Suite struct EmptyMergeTimingTests {
-    @Test func mergingEmptyCueKeepsNeighbourTiming() throws {
-        let cues = [
-            SubtitleCue(startMs: 1000, endMs: 3000, text: "执行"),
-            SubtitleCue(startMs: 3000, endMs: 5000, text: " "),
-            SubtitleCue(startMs: 5000, endMs: 7000, text: "温度"),
-        ]
-        let forward = try #require(SubtitleEditing.mergeWithNext(cues, at: 0))
-        #expect(forward.count == 2)
-        #expect((forward[0].startMs, forward[0].endMs, forward[0].text) == (1000, 3000, "执行"))
-        let backward = try #require(SubtitleEditing.mergeWithNext(cues, at: 1))
-        #expect((backward[1].startMs, backward[1].endMs, backward[1].text) == (5000, 7000, "温度"))
-        #expect(backward[1].id == cues[1].id)
+@Suite struct DeleteClosingGapTests {
+    let cues = [
+        SubtitleCue(startMs: 0, endMs: 3000, text: "一"),
+        SubtitleCue(startMs: 3200, endMs: 7000, text: "二"),
+        SubtitleCue(startMs: 7400, endMs: 10000, text: "三"),
+        SubtitleCue(startMs: 10200, endMs: 12000, text: "四"),
+    ]
+
+    @Test func deletingShiftsFollowingCuesIntoTheGap() throws {
+        let result = try #require(SubtitleEditing.deleteClosingGap(cues, at: 1))
+        #expect(result.map(\.text) == ["一", "三", "四"])
+        #expect(result.map(\.startMs) == [0, 3200, 6000])
+        #expect(result.map(\.endMs) == [3000, 5800, 7800])
+    }
+
+    @Test func deletingLastCueShiftsNothing() throws {
+        let result = try #require(SubtitleEditing.deleteClosingGap(cues, at: 3))
+        #expect(result.map(\.endMs) == [3000, 7000, 10000])
+    }
+
+    @Test func mergingAwayAClearedCueClosesTheGap() throws {
+        var cleared = cues
+        cleared[1].text = " "
+        let forward = try #require(SubtitleEditing.mergeWithNext(cleared, at: 0))
+        let backward = try #require(SubtitleEditing.mergeWithNext(cleared, at: 1))
+        for result in [forward, backward] {
+            #expect(result.map(\.text) == ["一", "三", "四"])
+            #expect(result.map(\.startMs) == [0, 3200, 6000])
+        }
     }
 }

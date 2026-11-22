@@ -29,7 +29,32 @@ public enum SubtitleEditing {
     /// `separator` defaults to `joinSeparator(_:_:)`, which keeps the merged text on one line.
     public static func mergeWithNext(_ cues: [SubtitleCue], at index: Int, separator: String? = nil) -> [SubtitleCue]? {
         guard cues.indices.contains(index), cues.indices.contains(index + 1) else { return nil }
+        // Merging away a cue whose text was cleared is a deletion: close its gap instead of
+        // stretching the neighbour over the removed span.
+        let leftEmpty = isBlank(cues[index]), rightEmpty = isBlank(cues[index + 1])
+        if leftEmpty != rightEmpty {
+            return deleteClosingGap(cues, at: leftEmpty ? index : index + 1)
+        }
         return merge(cues, range: index...(index + 1), separator: separator)
+    }
+
+    /// Removes the cue at `index` and shifts every following cue earlier so the next cue starts where
+    /// the removed one started. Gaps between the remaining cues are preserved.
+    public static func deleteClosingGap(_ cues: [SubtitleCue], at index: Int) -> [SubtitleCue]? {
+        guard cues.indices.contains(index) else { return nil }
+        var result = cues
+        let removed = result.remove(at: index)
+        guard result.indices.contains(index) else { return result }
+        let shift = max(0, result[index].startMs - removed.startMs)
+        for i in index..<result.count {
+            result[i].startMs = max(0, result[i].startMs - shift)
+            result[i].endMs = max(result[i].startMs, result[i].endMs - shift)
+        }
+        return result
+    }
+
+    private static func isBlank(_ cue: SubtitleCue) -> Bool {
+        cue.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     /// Merges a contiguous range of cues into one.
