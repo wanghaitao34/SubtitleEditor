@@ -194,3 +194,19 @@ import Testing
         #expect(LineEnding.detect(in: "no breaks") == .lf)
     }
 }
+
+@Suite struct EmptyMergeTimingTests {
+    @Test func mergingEmptyCueKeepsNeighbourTiming() throws {
+        let cues = [
+            SubtitleCue(startMs: 1000, endMs: 3000, text: "执行"),
+            SubtitleCue(startMs: 3000, endMs: 5000, text: " "),
+            SubtitleCue(startMs: 5000, endMs: 7000, text: "温度"),
+        ]
+        let forward = try #require(SubtitleEditing.mergeWithNext(cues, at: 0))
+        #expect(forward.count == 2)
+        #expect((forward[0].startMs, forward[0].endMs, forward[0].text) == (1000, 3000, "执行"))
+        let backward = try #require(SubtitleEditing.mergeWithNext(cues, at: 1))
+        #expect((backward[1].startMs, backward[1].endMs, backward[1].text) == (5000, 7000, "温度"))
+        #expect(backward[1].id == cues[1].id)
+    }
+}

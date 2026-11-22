@@ -40,10 +40,14 @@ public enum SubtitleEditing {
         let slice = cues[range]
         let first = slice.first!
         let texts = slice.map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        // Empty cues contribute no time, so deleting a cue's text and merging it away
+        // doesn't stretch its neighbour over the removed span.
+        let timed = slice.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let span = timed.isEmpty ? Array(slice) : timed
         let merged = SubtitleCue(
             id: first.id,
-            startMs: first.startMs,
-            endMs: max(slice.last!.endMs, slice.map(\.endMs).max()!),
+            startMs: span.map(\.startMs).min()!,
+            endMs: span.map(\.endMs).max()!,
             text: join(texts, separator: separator)
         )
         var result = cues

@@ -6,7 +6,7 @@ import SwiftUI
 /// inserts a line break, and Tab / Shift-Tab move between cues.
 struct CueTextView: NSViewRepresentable {
     var text: String
-    var focusCaret: Int?
+    var focusRequest: FocusRequest?
     var onChange: (String) -> Void
     var onActivate: () -> Void
     var onSplit: (Int) -> Void
@@ -41,15 +41,27 @@ struct CueTextView: NSViewRepresentable {
     }
 
     func updateNSView(_ tv: NSTextView, context: Context) {
-        context.coordinator.parent = self
+        let coordinator = context.coordinator
+        coordinator.parent = self
         if tv.string != text && !tv.hasMarkedText() {
-            let sel = tv.selectedRange()
-            tv.string = text
-            let len = (text as NSString).length
-            tv.setSelectedRange(NSRange(location: min(sel.location, len), length: 0))
+            if text == coordinator.syncedText {
+                // The model hasn't changed since our last sync, so the text view holds newer local
+                // edits (e.g. a just-committed IME composition). Push them instead of reverting.
+                DispatchQueue.main.async { [weak tv] in if let tv { coordinator.sync(tv) } }
+            } else {
+                // External change (undo/redo, merge): replace the text, keeping the caret at the end if it was there.
+                let sel = tv.selectedRange()
+                let wasAtEnd = sel.location >= (tv.string as NSString).length
+                tv.string = text
+                let len = (text as NSString).length
+                tv.setSelectedRange(NSRange(location: wasAtEnd ? len : min(sel.location, len), length: 0))
+                coordinator.syncedText = text
+            }
+        } else if tv.string == text {
+            coordinator.syncedText = text
         }
-        if let caret = focusCaret {
-            context.coordinator.focus(tv, caret: caret, attempts: 10)
+        if let focus = focusRequest, focus.token != coordinator.handledFocusToken {
+            coordinator.focus(tv, request: focus, attempts: 10)
         }
     }
 
@@ -65,34 +77,50 @@ struct CueTextView: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: CueTextView
+        /// Last text known to be identical in the model and the text view.
+        var syncedText: String
+        var handledFocusToken: UUID?
         private var pendingFocus = false
 
-        init(_ parent: CueTextView) { self.parent = parent }
+        init(_ parent: CueTextView) {
+            self.parent = parent
+            self.syncedText = parent.text
+        }
 
-        func focus(_ tv: NSTextView, caret: Int, attempts: Int) {
+        func focus(_ tv: NSTextView, request: FocusRequest, attempts: Int) {
             guard !pendingFocus else { return }
             pendingFocus = true
             DispatchQueue.main.async { [weak self, weak tv] in
                 guard let self, let tv else { return }
                 self.pendingFocus = false
+                guard self.handledFocusToken != request.token else { return }
                 guard let window = tv.window else {
                     if attempts > 0 {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { self.focus(tv, caret: caret, attempts: attempts - 1) }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { self.focus(tv, request: request, attempts: attempts - 1) }
                     }
                     return
                 }
+                self.handledFocusToken = request.token
                 window.makeFirstResponder(tv)
                 let s = tv.string
-                let idx = s.index(s.startIndex, offsetBy: min(max(0, caret), s.count))
+                let idx = s.index(s.startIndex, offsetBy: min(max(0, request.caret), s.count))
                 tv.setSelectedRange(NSRange(location: idx.utf16Offset(in: s), length: 0))
                 tv.scrollRangeToVisible(tv.selectedRange())
                 self.parent.onFocusHandled()
             }
         }
 
+        /// Sends the text view's current text to the model.
+        func sync(_ tv: NSTextView) {
+            guard !tv.hasMarkedText() else { return }
+            let s = tv.string
+            syncedText = s
+            parent.onChange(s)
+        }
+
         func textDidChange(_ notification: Notification) {
-            guard let tv = notification.object as? NSTextView, !tv.hasMarkedText() else { return }
-            parent.onChange(tv.string)
+            guard let tv = notification.object as? NSTextView else { return }
+            sync(tv)
         }
 
         func textView(_ tv: NSTextView, doCommandBy selector: Selector) -> Bool {
@@ -104,7 +132,7 @@ struct CueTextView: NSViewRepresentable {
                 tv.insertText("\n", replacementRange: sel)
                 return true
             case #selector(NSResponder.insertNewline(_:)):
-                parent.onChange(tv.string)
+                sync(tv)
                 let s = tv.string
                 let utf16 = min(sel.location, length)
                 let offset = s.distance(from: s.startIndex, to: String.Index(utf16Offset: utf16, in: s))
@@ -115,11 +143,11 @@ struct CueTextView: NSViewRepresentable {
                 tv.insertText("\n", replacementRange: sel)
                 return true
             case #selector(NSResponder.deleteBackward(_:)) where sel.location == 0 && sel.length == 0:
-                parent.onChange(tv.string)
+                sync(tv)
                 parent.onMergePrevious()
                 return true
             case #selector(NSResponder.deleteForward(_:)) where sel.location == length && sel.length == 0:
-                parent.onChange(tv.string)
+                sync(tv)
                 parent.onMergeNext()
                 return true
             case #selector(NSResponder.insertTab(_:)):
@@ -142,5 +170,17 @@ final class ClickableTextView: NSTextView {
     override func mouseDown(with event: NSEvent) {
         onMouseDown?()
         super.mouseDown(with: event)
+    }
+
+    // Committing an IME composition can post textDidChange while the marked text is still set,
+    // so make sure the committed text reaches the model.
+    override func insertText(_ string: Any, replacementRange: NSRange) {
+        super.insertText(string, replacementRange: replacementRange)
+        (delegate as? CueTextView.Coordinator)?.sync(self)
+    }
+
+    override func unmarkText() {
+        super.unmarkText()
+        (delegate as? CueTextView.Coordinator)?.sync(self)
     }
 }

@@ -186,7 +186,7 @@ struct CueRow: View {
                     }
                 CueTextView(
                     text: cue.text,
-                    focusCaret: model.focusRequest?.cueID == cue.id ? model.focusRequest?.caret : nil,
+                    focusRequest: model.focusRequest?.cueID == cue.id ? model.focusRequest : nil,
                     onChange: { model.updateText(cue.id, $0) },
                     onActivate: { model.select(cue.id) },
                     onSplit: { model.split(cue.id, atCharacter: $0) },
